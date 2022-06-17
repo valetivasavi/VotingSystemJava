@@ -1,0 +1,261 @@
+/*
+ * ONLINE  VOTING SYSTEM
+ * 
+ * @author : SaiPrasad_
+ * @author : Vasavi_
+ * @author : Anusha_
+ * @author : Sarvana_
+ * 
+ *ONLINE VOTING SYSTEM can be used for casting votes during any kind of elections.
+ *In this system the voter does not have to go to the polling booth to cast their vote. They can use their personal computer to cast their votes. 
+ *There is a database which is maintained in which all the name of the voters with their complete information is stored. 
+ *The voter enters his/her voter _id  if it matches with the ones in database then only  the voter is allowed to vote.This process is repeated
+ * for multiple users and finally the winners are declared based on the highest count of votes.
+ * 
+ */
+package com.voting;
+
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Scanner;
+
+// Class to implement Voting System
+public class VotingClass {
+	Connection con;
+	Statement st;
+	CallableStatement cst;
+	@SuppressWarnings("resource")
+	Scanner sc=new Scanner(System.in);
+	// Constructor to provide the connection 
+	public VotingClass() {
+		con=ConnectionProvider1.getConnectionWithDB();
+		try {
+			st=con.createStatement(); 
+			cst=con.prepareCall("{call getVote(?)}"); // To update status value to 1
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	// method to create the tables in the database
+	public void createtable() throws SQLException
+	{
+		PreparedStatement p= con.prepareStatement("create table VotersList(Voter_Id int, Name varchar2(20), Status int)");
+		PreparedStatement p2= con.prepareStatement("create table PartyDetails(Part_Id int,Party_Name varchar2(20),Votes_Count int)");
+		
+		p.executeUpdate();
+		p2.executeUpdate();
+		System.out.println("Tables created");
+		
+	}
+	
+	// method to insert records in the table
+	public void insert() throws SQLException
+	{
+		
+		int vid=sc.nextInt();
+		String nme=sc.next();
+		String st=sc.next();
+		
+		PreparedStatement p= con.prepareStatement("insert into VotersList values(?,?,?)");
+		p.setInt(1,vid);
+		p.setString(2, nme);
+		p.setInt(3,-1);
+		p.setString(4, st);
+		
+		p.executeUpdate();
+		System.out.println("Inserted row");
+		//S.close();
+	}
+
+// method to know the number of voters
+public void numberOfVoters() {
+		
+		//Scanner s = new Scanner(System.in);
+		System.out.println("--------------------------------------------------------------");
+		System.out.println("Enter the number of voters :\n "); // no.of voters in the voting list
+		int no_of_voters = sc.nextInt();
+		while(no_of_voters!=0) {
+			voterVerification();
+			no_of_voters--;
+		}
+		//s.close();
+	}
+	
+	
+	// method to verify the voter details and cast votes if voter details are valid
+	public  void voterVerification() {
+		try {
+			
+			//Scanner sc = new Scanner(System.in);
+			// verifying voter
+			System.out.println("\n--------------------------------------------------------------");
+			System.out.println("Enter your voter Id :\n");
+			int vid = sc.nextInt();			
+			
+			String selectQuery="select * from votersList";
+			ResultSet rs=st.executeQuery(selectQuery);
+			int count=0;
+			while(rs.next()) {
+				int Voter_Id = rs.getInt(1);
+				if(vid==Voter_Id) {
+						count=count+1;break;}
+				
+			}if (count!=1) {
+				System.out.println("\nInvalid Voter Id\n ");
+			}
+			else {
+				
+				int st= rs.getInt(3);
+				String nm= rs.getString(2);
+				if(st==-1) { // To check if the voter has already voted
+					
+					System.out.println("\nWelcome to ONLINE VOTING SYSTEM  " + nm+" ,");
+					
+					System.out.println("\nSelect the Candidate whom you want to vote : ");
+					
+					System.out.println("\n1) BJP   2) TRS   3) MIM   4) NOTA"); // Party/Candidate Names
+					
+					System.out.println("\nEnter 1/2/3/4 :\n ");
+					int choice = sc.nextInt();
+					sc.close();
+					cst.setInt(1, vid); // Setting Voters Status to 1 (which means the voter has voted)
+					cst.execute();
+					
+					System.out.println("\nThanks for voting ! Your vote has been counted !"); 
+					
+					VoteMain(choice,0);
+					
+					}else { // If the voter is voting for more than once
+						
+						System.out.println("\nYou can't vote twice!");
+					}
+			}
+			} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	 //method to Vote and all voting logic is here  and this method takes Vote and Flag as parameters	
+	public void VoteMain(int Vote,int flag)
+	{
+    	PreparedStatement p2;
+		try {
+			p2 = con.prepareStatement("select Votes_Count from PartyDetails where Party_Id = ?");
+		
+    	PreparedStatement p3=con.prepareStatement("update PartyDetails SET Votes_Count=? where Party_Id=?");
+    	p2.setInt(1,Vote);
+    	ResultSet r=p2.executeQuery();
+    	int count;
+    	
+    	while(r.next())
+    	{
+    		count=r.getInt(1);
+    		++count;
+    		p3.setInt(1,count);
+    		p3.setInt(2,Vote);
+    		p3.executeUpdate();
+    		
+    	}
+    	if(flag==1)
+    	{
+    		System.out.println("\nThe Winner Team is : ");
+    		result();
+    	}
+		} catch (SQLException e) {
+			
+			e.printStackTrace();
+		}
+		
+	}
+	
+	//method to Show results of winner team
+	public void result() 
+    {
+    	PreparedStatement p4;
+    	System.out.println("\nRESULTS  : \n");
+		try {
+			p4 = con.prepareStatement("select * from PartyDetails where VOTES_COUNT=(select MAX(VOTES_COUNT) from PartyDetails)");
+		
+    	ResultSet r1=p4.executeQuery();
+    	int ctr = 0;
+    	while(r1.next())  
+    	{
+    		++ctr;
+    		
+    	}
+    	
+    	if(ctr>1)    // Checking whether there is a Tie between any teams
+    	{
+    		
+			
+    		System.out.println("\nThere's a tie between these teams : ");
+    		System.out.println("\n--------------------------------------------------------------");
+    		ResultSet rR=p4.executeQuery();
+    		ResultSetMetaData rsmd = rR.getMetaData();
+    		System.out.println(rsmd.getColumnName(1)+"\t\t"+rsmd.getColumnName(2)+"\t\t"+rsmd.getColumnName(3));
+			System.out.println("--------------------------------------------------------------\n");
+    		while(rR.next())  
+        	{
+    			
+        		System.out.println("\t"+rR.getInt(1)+"\t\t\t"+rR.getString(2)+"\t\t\t\t"+rR.getInt(3));
+        		System.out.println("\n--------------------------------------------------------------\n");
+        	}
+    		rR.close();
+    		
+    		System.out.println("Enter Respective Party_Id to vote them : ");
+    		int pvote = sc.nextInt();
+    		ResultSet r2=p4.executeQuery();    
+    		while(r2.next())
+    		{
+    		if(pvote==r2.getInt(1))
+    		{
+    			System.out.println("Done");
+    			VoteMain(pvote,1);break;
+    		}
+    		}
+    	}
+    	
+    	else
+    	{
+    		// Displaying Winners
+    		System.out.println("--------------------------------------------------------------");
+    		System.out.println(" ** THE WINNERS *** ");
+    		System.out.println("--------------------------------------------------------------");
+    		System.out.println("\n--------------------------------------------------------------");
+    		ResultSet rR=p4.executeQuery();
+    		ResultSetMetaData rsmd = rR.getMetaData();
+    		while(rR.next())  
+        	{
+    			System.out.println(rsmd.getColumnName(1)+"\t\t"+rsmd.getColumnName(2)+"\t\t"+rsmd.getColumnName(3));
+    			System.out.println("--------------------------------------------------------------\n");
+        		System.out.println("\t"+rR.getInt(1)+"\t\t\t"+rR.getString(2)+"\t\t\t\t"+rR.getInt(3));
+        		
+        	}
+    		
+    	}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+    }
+	
+	
+public static void main(String[] args) {
+	
+	VotingClass v = new VotingClass(); // creating object of VotingClass
+//	v.createtable();
+//	v.insert();
+	v.numberOfVoters();
+	System.out.println("\n--------------------------------------------------------------");
+	v.result();
+	System.out.println("\n--------------------------------------------------------------");
+	
+}
+}
