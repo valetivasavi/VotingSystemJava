@@ -1,0 +1,25 @@
+create table VotersList(Voter_Id int , name varchar2(20),Status int );
+
+
+create table PartyDetails(Party_Id int , Party_Name varchar2(20),Votes_Count int);
+
+
+create or replace procedure getVote(inp IN int)
+is begin
+update VotersList set Status=1 where Voter_Id =inp;
+end;
+/
+
+Records of the table PartyDetails:
+
+insert into PartyDetails values(1,'BJP',0);
+insert into PartyDetails values(2,'TRS',0);
+insert into PartyDetails values(3,'MIM',0);
+insert into PartyDetails values(4,'NOTA',0);
+
+Records of the table VotersList:
+
+insert into VotersList values(1001,'SaiPrasad',-1);
+insert into VotersList values(1002,'Vasavi',-1);
+insert into VotersList values(1003,'Anusha',-1);
+insert into VotersList values(1004,'Sarvana',-1);
